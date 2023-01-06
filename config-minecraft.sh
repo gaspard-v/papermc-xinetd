@@ -40,3 +40,58 @@ START_LOCKFILE=${START_LOCKFILE:-$SERVER_ROOT/minecraft.lock}
 IDLE_LOCKFILE=${IDLE_LOCKFILE:-/tmp/minecraftidle}
 PLAYERS_FILE=${PLAYERS_FILE:-/tmp/minecraftplayer}
 MINECRAFT_OPTS=${MINECRAFT_OPTS:--nogui}
+
+debug() {
+  #echo "$1"
+  echo -n ""
+}
+
+## Define this function to start the minecraft server. This should start
+## the server, and do any pre or post processing steps you might need.
+
+## This command will be run in a screen session to communicate with the
+## server
+## This command is run as $SERVER_USER
+start() {
+  # TODO: Or maybe some tekkit-start should be in here.
+  /usr/bin/env java $JAVAOPTS -jar $MINECRAFT_JAR $MINECRAFT_OPTS 2>&1 \
+    | sed -n -e 's/^.*There are \([0-9]*\)\/[0-9] players.*$/\1/' -e 't M' -e 'b' -e ": M w $PLAYERS_FILE" -e 'd' \
+    | grep -v -e "INFO" -e "Can't keep up"
+}
+
+## Define this function to stop the minecraft server. This should stop
+## the server, and do any pre or post processing steps you might need.
+
+## This command will be run by your crontab.
+stop() {
+  screen -S $SESSION -p 0 -X stuff 'stop\15'
+  debug "Shit's going down"
+}
+
+## Define this function to return true if and only if the server has no
+## players online. The server will shut down if this returns true twice
+## in a $WAIT_TIME.
+## This command is run by your crontab.
+idle() {
+  # TODO: Maybe some of this should be in tekkit-idle.
+  echo -n "" > ${PLAYERS_FILE}
+  debug `cat ${PLAYERS_FILE}`
+  screen -S $SESSION -p 0 -X stuff 'list\15'
+  players=`tail -n 1 ${PLAYERS_FILE} | tr -d [:cntrl:]`
+  while [ -z ${players} ]; do
+    sleep 1
+    players=`tail -n 1 ${PLAYERS_FILE} | tr -d [:cntrl:]`
+  done
+  debug "There are ${players} players"
+  if [ "0" = "${players}" ]; then
+    debug "Idle"
+    true
+  else
+    debug "Not idle"
+    false
+  fi
+}
+
+echo-utf16be() {
+	echo -ne "$1" | iconv -t "UTF-16BE"
+}
