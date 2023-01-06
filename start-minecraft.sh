@@ -45,7 +45,7 @@ if [ ! -f $START_LOCKFILE ]; then
   if ! pgrep -U $SERVER_USER -f "$MINECRAFT_JAR" >/dev/null; then
     sudo -u $SERVER_USER -- screen -dmS $SESSION $LAUNCH
     sign
-    while netcat -vz -w 1 localhost 25555 2>&1 | grep refused > /dev/null; do
+    while netcat -vz -w 1 localhost $LOCAL_PORT 2>&1 | grep refused > /dev/null; do
       debug "Connection refused"
       sleep 1
     done
